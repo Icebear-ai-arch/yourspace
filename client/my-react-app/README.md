@@ -2,6 +2,34 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## Deploy to Vercel, Render, and TiDB Cloud
+
+Deploy the React frontend to Vercel, the Express API as a Render Web Service, and use a TiDB Cloud Starter database. TiDB Starter speaks the MySQL protocol and requires TLS. Its free usage quota has limits.
+
+Vercel frontend environment variable:
+
+```env
+REACT_APP_API_URL=https://your-render-api.onrender.com
+```
+
+Render backend environment variables:
+
+```env
+NODE_ENV=production
+CLIENT_ORIGIN=https://yourspace-mu.vercel.app
+SESSION_SECRET=replace-with-a-long-random-secret
+DB_HOST=your-tidb-host
+DB_PORT=4000
+DB_USER=your-tidb-user
+DB_PASSWORD=your-new-tidb-password
+DB_NAME=test
+DB_SSL_CA=paste-the-TiDB-CA-certificate-here
+```
+
+Set `DB_SSL_CA` to the CA certificate provided by TiDB. The backend accepts a PEM value with real line breaks or escaped `\n` sequences. Keep passwords and session secrets private. Configure TiDB network access to allow the Render service's outbound IP ranges.
+
+Production session cookies use `SameSite=None; Secure` for cross-site requests. Some browsers block third-party cookies, so a custom frontend/API domain under the same site may be needed for reliable sessions. Render's free web service can spin down when idle, and its local filesystem is not persistent. Uploaded media should use persistent external storage for a durable deployment.
+
 ## Run the social app locally
 
 The app uses a React client, an Express/Sequelize API, and MySQL. Start MySQL and create the database before starting the API:

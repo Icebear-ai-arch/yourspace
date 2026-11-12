@@ -7,6 +7,7 @@ const process = require('process');
 const basename = path.basename(__filename);
 const env = process.env.NODE_ENV || 'development';
 const baseConfig = require(__dirname + '/../config/config.json')[env];
+const sslCa = process.env.DB_SSL_CA;
 const config = {
   ...baseConfig,
   host: process.env.DB_HOST || baseConfig.host,
@@ -14,6 +15,14 @@ const config = {
   username: process.env.DB_USER || baseConfig.username,
   password: process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : baseConfig.password,
   database: process.env.DB_NAME || baseConfig.database,
+  ...(sslCa
+    ? {
+        dialectOptions: {
+          ...baseConfig.dialectOptions,
+          ssl: { ca: sslCa.replace(/\\n/g, '\n') },
+        },
+      }
+    : {}),
 };
 const db = {};
 

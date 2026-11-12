@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const http = require('http');
 const { Server } = require('socket.io');
 const app = express();
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 const db = require('./models');
 const requireAuth = require('./middleware/requireAuth');

@@ -3,7 +3,9 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 
-const uploadDirectory = path.resolve(__dirname, '..', 'uploads');
+const uploadDirectory = path.resolve(
+  process.env.MEDIA_STORAGE_PATH || path.resolve(__dirname, '..', 'uploads'),
+);
 const supportedMedia = new Map([
   ['.jpg', 'image/jpeg'],
   ['.jpeg', 'image/jpeg'],

@@ -28,7 +28,7 @@ DB_SSL_CA=paste-the-TiDB-CA-certificate-here
 
 Set `DB_SSL_CA` to the CA certificate provided by TiDB. The backend accepts a PEM value with real line breaks or escaped `\n` sequences. Keep passwords and session secrets private. Configure TiDB network access to allow the Render service's outbound IP ranges.
 
-Production session cookies use `SameSite=None; Secure` for cross-site requests. Some browsers block third-party cookies, so a custom frontend/API domain under the same site may be needed for reliable sessions. Render's free web service can spin down when idle, and its local filesystem is not persistent. Uploaded media should use persistent external storage for a durable deployment.
+Production session cookies use `SameSite=None; Secure` for cross-site requests. Some browsers block third-party cookies, so a custom frontend/API domain under the same site may be needed for reliable sessions. Render's local filesystem is not persistent. To store uploads on a Render persistent disk, attach a disk to the API service, mount it at `/var/data`, and set `MEDIA_STORAGE_PATH=/var/data/uploads` in the service's environment. Use a Render plan that supports persistent disks. If you run multiple API instances, use shared object storage instead, since a disk is attached to one instance.
 
 ## Run the social app locally
 

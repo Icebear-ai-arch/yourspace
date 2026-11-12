@@ -3,6 +3,16 @@ import { io } from 'socket.io-client';
 import { API_URL, request } from './api';
 import './App.css';
 
+function BrandLogo({ className = '' }) {
+  return (
+    <img
+      alt="YourSpace"
+      className={`brand-logo ${className}`.trim()}
+      src={`${process.env.PUBLIC_URL}/yourspace-logo.png`}
+    />
+  );
+}
+
 function ThemeToggle({ theme, onToggle }) {
   const nextTheme = theme === 'dark' ? 'light' : 'dark';
   return (
@@ -69,6 +79,7 @@ function AuthScreen({ onAuthenticated, theme, onThemeToggle }) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -93,7 +104,7 @@ function AuthScreen({ onAuthenticated, theme, onThemeToggle }) {
     <main className="auth-page">
       <section className="auth-card">
         <div className="auth-card-top">
-          <div className="brand-mark">Y</div>
+          <BrandLogo />
           <ThemeToggle onToggle={onThemeToggle} theme={theme} />
         </div>
         <p className="eyebrow">YOUR PEOPLE, YOUR PLACE</p>
@@ -127,14 +138,37 @@ function AuthScreen({ onAuthenticated, theme, onThemeToggle }) {
           </label>
           <label>
             Password
-            <input
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              minLength="8"
-              onChange={event => setPassword(event.target.value)}
-              required
-              type="password"
-              value={password}
-            />
+            <span className="password-input-wrap">
+              <input
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                minLength="8"
+                onChange={event => setPassword(event.target.value)}
+                required
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+              />
+              <button
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showPassword}
+                className="password-toggle"
+                onClick={() => setShowPassword(visible => !visible)}
+                type="button"
+              >
+                <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+                  {showPassword ? (
+                    <>
+                      <path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8" />
+                      <path d="M9.9 5.2A10.7 10.7 0 0112 5c5.5 0 9 5 9 7a9.7 9.7 0 01-3 3.8M6.2 6.2C3.9 7.6 3 10 3 12c0 2 3.5 7 9 7 1.1 0 2.1-.2 3-.6" />
+                    </>
+                  ) : (
+                    <>
+                      <path d="M3 12s3.2-7 9-7 9 7 9 7-3.2 7-9 7-9-7-9-7z" />
+                      <circle cx="12" cy="12" r="2.5" />
+                    </>
+                  )}
+                </svg>
+              </button>
+            </span>
           </label>
           {error && <p className="error-message" role="alert">{error}</p>}
           <button className="primary-button" disabled={busy} type="submit">
@@ -1251,7 +1285,7 @@ function App() {
   }
 
   if (checkingSession) {
-    return <main className="loading-screen"><div className="brand-mark">Y</div><p>Getting your space ready…</p></main>;
+    return <main className="loading-screen"><BrandLogo className="loading-logo" /><p>Getting your space ready…</p></main>;
   }
   if (!user) {
     return (
@@ -1269,7 +1303,7 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <a className="wordmark" href="#home"><span className="brand-mark">Y</span> YourSpace</a>
+        <a aria-label="YourSpace home" className="wordmark" href="#home"><BrandLogo /></a>
         <nav aria-label="Main navigation" className="main-nav">
           {[
             ['posts', 'Posts'],

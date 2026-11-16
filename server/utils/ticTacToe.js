@@ -28,7 +28,7 @@ function applyMove(game, userId, cell) {
   const mark = isX ? 'X' : 'O';
   const playerMoves = moveHistory.filter(move => move.userId === userId);
 
-  if (playerMoves.length === 3) {
+  if (playerMoves.length === 4) {
     const oldestMove = playerMoves[0];
     board[oldestMove.cell] = '.';
     moveHistory.splice(moveHistory.findIndex(move => move === oldestMove), 1);

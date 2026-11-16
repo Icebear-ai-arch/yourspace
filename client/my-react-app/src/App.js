@@ -1093,7 +1093,7 @@ function Chat({ user }) {
                 <span aria-hidden="true">✦</span>
               </div>
               <p className="game-rules">
-                No draws: after three marks, your oldest mark moves off the board. Keep playing until someone wins.
+                No draws: after four marks, your oldest mark moves off the board. Keep playing until someone wins.
               </p>
               {gameLoading ? (
                 <p className="muted game-status">Loading game…</p>

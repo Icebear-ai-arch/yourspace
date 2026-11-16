@@ -90,6 +90,11 @@ db.Group.hasMany(db.GroupMessage, { as: 'messages', foreignKey: 'groupId', onDel
 db.GroupMessage.belongsTo(db.Group, { as: 'group', foreignKey: 'groupId' });
 db.User.hasMany(db.GroupMessage, { as: 'groupMessages', foreignKey: 'userId', onDelete: 'CASCADE' });
 db.GroupMessage.belongsTo(db.User, { as: 'author', foreignKey: 'userId' });
+db.Conversation.hasMany(db.TicTacToeGame, { as: 'ticTacToeGames', foreignKey: 'conversationId', onDelete: 'CASCADE' });
+db.TicTacToeGame.belongsTo(db.Conversation, { as: 'conversation', foreignKey: 'conversationId' });
+db.TicTacToeGame.belongsTo(db.User, { as: 'playerX', foreignKey: 'playerXId' });
+db.TicTacToeGame.belongsTo(db.User, { as: 'playerO', foreignKey: 'playerOId' });
+db.TicTacToeGame.belongsTo(db.User, { as: 'winner', foreignKey: 'winnerId' });
 db.User.hasMany(db.FriendRequest, { as: 'sentFriendRequests', foreignKey: 'requesterId', onDelete: 'CASCADE' });
 db.User.hasMany(db.FriendRequest, { as: 'firstFriendRequests', foreignKey: 'userOneId', onDelete: 'CASCADE' });
 db.User.hasMany(db.FriendRequest, { as: 'secondFriendRequests', foreignKey: 'userTwoId', onDelete: 'CASCADE' });

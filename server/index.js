@@ -47,6 +47,7 @@ app.use('/comments', requireAuth, require('./routes/Comments'));
 app.use('/users', requireAuth, require('./routes/Users'));
 app.use('/friends', requireAuth, require('./routes/Friends'));
 app.use('/chat', requireAuth, require('./routes/Chat').router);
+app.use('/games', requireAuth, require('./routes/Games'));
 app.use('/groups', requireAuth, require('./routes/Groups'));
 app.use('/media', requireAuth, require('./routes/Media'));
 

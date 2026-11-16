@@ -768,6 +768,11 @@ function Chat({ user }) {
   const [mediaFile, setMediaFile] = useState(null);
   const [socket, setSocket] = useState(null);
   const [error, setError] = useState('');
+  const [gameData, setGameData] = useState(null);
+  const [gameOpen, setGameOpen] = useState(false);
+  const [gameBusy, setGameBusy] = useState(false);
+  const [gameLoading, setGameLoading] = useState(false);
+  const selectedConversationId = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -795,6 +800,11 @@ function Chat({ user }) {
           : conversation
       )));
     });
+    connection.on('game:updated', data => {
+      if (selectedConversationId.current === data.conversationId) {
+        setGameData(data);
+      }
+    });
     setSocket(connection);
 
     return () => {
@@ -805,13 +815,19 @@ function Chat({ user }) {
 
   useEffect(() => {
     if (!selected || !socket) {
+      selectedConversationId.current = null;
       setMessages([]);
+      setGameData(null);
       return undefined;
     }
 
     let active = true;
+    selectedConversationId.current = selected.id;
     setMediaFile(null);
     setError('');
+    setGameData(null);
+    setGameOpen(false);
+    setGameLoading(true);
     socket.emit('conversation:join', selected.id);
     request(`/chat/conversations/${selected.id}/messages`)
       .then(data => {
@@ -819,6 +835,16 @@ function Chat({ user }) {
       })
       .catch(requestError => {
         if (active) setError(requestError.message);
+      });
+    request(`/games/tic-tac-toe/${selected.id}`)
+      .then(data => {
+        if (active) setGameData(data);
+      })
+      .catch(requestError => {
+        if (active) setError(requestError.message);
+      })
+      .finally(() => {
+        if (active) setGameLoading(false);
       });
 
     return () => {
@@ -862,6 +888,37 @@ function Chat({ user }) {
       setMediaFile(null);
     } catch (requestError) {
       setError(requestError.message);
+    }
+  }
+
+  async function startGame() {
+    if (!selected) return;
+    setError('');
+    setGameBusy(true);
+    try {
+      const data = await request(`/games/tic-tac-toe/${selected.id}`, { method: 'POST' });
+      setGameData(data);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setGameBusy(false);
+    }
+  }
+
+  async function playGameMove(cell) {
+    if (!selected) return;
+    setError('');
+    setGameBusy(true);
+    try {
+      const data = await request(`/games/tic-tac-toe/${selected.id}/moves`, {
+        method: 'POST',
+        body: JSON.stringify({ cell }),
+      });
+      setGameData(data);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setGameBusy(false);
     }
   }
 
@@ -913,7 +970,82 @@ function Chat({ user }) {
           <div className="active-chat-heading">
             <Avatar className="avatar-small" profilePictureUrl={otherParticipant(selected)?.profilePictureUrl} username={otherParticipant(selected)?.username} />
             <strong>{otherParticipant(selected)?.username || 'Conversation'}</strong>
+            <button
+              aria-expanded={gameOpen}
+              className="secondary-button game-toggle"
+              onClick={() => setGameOpen(open => !open)}
+              type="button"
+            >
+              {gameOpen ? 'Hide game' : 'Play a game'}
+            </button>
           </div>
+          {gameOpen && (
+            <section aria-label="Games in this conversation" className="tic-tac-toe-panel">
+              <div className="game-panel-heading">
+                <div>
+                  <p className="eyebrow">PLAY TOGETHER</p>
+                  <h3>Tic-tac-toe infinity</h3>
+                </div>
+                <span aria-hidden="true">✦</span>
+              </div>
+              <p className="game-rules">
+                No draws: after three marks, your oldest mark moves off the board. Keep playing until someone wins.
+              </p>
+              {gameLoading ? (
+                <p className="muted game-status">Loading game…</p>
+              ) : gameData?.game ? (
+                <>
+                  <p className="game-status" role="status">
+                    {gameData.game.status === 'won'
+                      ? `${gameData.game.winner?.username || 'A player'} wins!`
+                      : gameData.game.turnUserId === user.id
+                        ? `Your turn (${gameData.game.playerXId === user.id ? 'X' : 'O'})`
+                        : `${gameData.game.turnUserId === gameData.game.playerXId
+                          ? gameData.game.playerX.username
+                          : gameData.game.playerO.username}’s turn`}
+                  </p>
+                  <div aria-label="Tic-tac-toe board" className="tic-tac-toe-board">
+                    {gameData.game.board.map((mark, cell) => (
+                      <button
+                        aria-label={`Square ${cell + 1}${mark ? `, ${mark}` : ', empty'}`}
+                        className={`tic-tac-toe-cell${mark ? ` mark-${mark.toLowerCase()}` : ''}`}
+                        disabled={gameBusy || gameData.game.status !== 'active' || gameData.game.turnUserId !== user.id || Boolean(mark)}
+                        key={cell}
+                        onClick={() => playGameMove(cell)}
+                        type="button"
+                      >
+                        {mark}
+                      </button>
+                    ))}
+                  </div>
+                  {gameData.game.status === 'won' && (
+                    <button className="primary-button small-button game-restart" disabled={gameBusy} onClick={startGame} type="button">
+                      Play again
+                    </button>
+                  )}
+                </>
+              ) : (
+                <button className="primary-button small-button" disabled={gameBusy} onClick={startGame} type="button">
+                  Start a game
+                </button>
+              )}
+              <div className="game-leaderboard">
+                <h4>All-time leaderboard</h4>
+                {gameData?.leaderboard?.length ? (
+                  <ol>
+                    {gameData.leaderboard.map((score, index) => (
+                      <li key={score.userId}>
+                        <span><strong>{index + 1}.</strong> {score.username}</span>
+                        <strong>{score.wins} {score.wins === 1 ? 'win' : 'wins'}</strong>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="muted">Win a game to claim the top spot.</p>
+                )}
+              </div>
+            </section>
+          )}
           <div aria-live="polite" className="chat-messages">
             {messages.map(message => (
               <div className={`message-bubble${message.userId === user.id ? ' own-message' : ''}`} key={message.id}>

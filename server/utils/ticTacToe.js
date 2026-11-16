@@ -17,6 +17,10 @@ function hasWinner(board) {
   ));
 }
 
+function presentBoard(board) {
+  return board.split('').map(mark => mark === '.' ? '' : mark);
+}
+
 function applyMove(game, userId, cell) {
   const board = game.board.split('');
   const moveHistory = JSON.parse(game.moveHistory);
@@ -43,4 +47,4 @@ function applyMove(game, userId, cell) {
   };
 }
 
-module.exports = { applyMove, hasWinner };
+module.exports = { applyMove, hasWinner, presentBoard };

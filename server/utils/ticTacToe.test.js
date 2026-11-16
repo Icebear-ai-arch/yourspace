@@ -1,6 +1,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { applyMove, hasWinner } = require('./ticTacToe');
+const { applyMove, hasWinner, presentBoard } = require('./ticTacToe');
+
+test('empty board cells are presented as blank playable squares', () => {
+  assert.deepEqual(presentBoard('.........'), ['', '', '', '', '', '', '', '', '']);
+  assert.deepEqual(presentBoard('X.O......'), ['X', '', 'O', '', '', '', '', '', '']);
+});
 
 test('a player’s oldest mark rotates off the board after their third mark', () => {
   const game = {

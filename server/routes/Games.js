@@ -7,7 +7,7 @@ const {
   sequelize,
 } = require('../models');
 const { participantWhere } = require('./Chat');
-const { applyMove } = require('../utils/ticTacToe');
+const { applyMove, presentBoard } = require('../utils/ticTacToe');
 
 const router = express.Router();
 const playerAttributes = ['id', 'username'];
@@ -44,7 +44,7 @@ function presentGame(game) {
   if (!game) return null;
   return {
     id: game.id,
-    board: game.board.split(''),
+    board: presentBoard(game.board),
     playerXId: game.playerXId,
     playerOId: game.playerOId,
     turnUserId: game.turnUserId,

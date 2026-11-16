@@ -74,31 +74,73 @@ function Avatar({ username, profilePictureUrl, className = '' }) {
   );
 }
 
-function AuthScreen({ onAuthenticated, theme, onThemeToggle }) {
-  const [mode, setMode] = useState('login');
+function AuthScreen({ onAuthenticated, onPasswordReset, onResetFlowExit, theme, onThemeToggle }) {
+  const [resetToken, setResetToken] = useState(() => (
+    new URLSearchParams(window.location.hash.slice(1)).get('reset-token') || ''
+  ));
+  const [mode, setMode] = useState(() => (
+    new URLSearchParams(window.location.hash.slice(1)).has('reset-token') ? 'reset-password' : 'login'
+  ));
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
 
   async function submit(event) {
     event.preventDefault();
     setError('');
+    setNotice('');
     setBusy(true);
     try {
-      const data = await request(`/auth/${mode}`, {
-        method: 'POST',
-        body: JSON.stringify({ username, email, password }),
-      });
-      onAuthenticated(data.user);
+      if (mode === 'forgot-password') {
+        const data = await request('/auth/forgot-password', {
+          method: 'POST',
+          body: JSON.stringify({ email }),
+        });
+        setNotice(data.message);
+      } else if (mode === 'reset-password') {
+        const data = await request('/auth/reset-password', {
+          method: 'POST',
+          body: JSON.stringify({ token: resetToken, password }),
+        });
+        setNotice(data.message);
+        setPassword('');
+        setResetToken('');
+        window.history.replaceState({}, '', `${window.location.pathname}${window.location.search}`);
+        setMode('login');
+        onPasswordReset();
+      } else {
+        const data = await request(`/auth/${mode}`, {
+          method: 'POST',
+          body: JSON.stringify({ username, email, password }),
+        });
+        onAuthenticated(data.user);
+      }
     } catch (requestError) {
       setError(requestError.message);
     } finally {
       setBusy(false);
     }
   }
+
+  const title = mode === 'login'
+    ? 'Welcome back'
+    : mode === 'register'
+      ? 'Join the conversation'
+      : mode === 'forgot-password'
+        ? 'Forgot your password?'
+        : 'Choose a new password';
+  const description = mode === 'login'
+    ? 'Sign in to catch up with your community.'
+    : mode === 'register'
+      ? 'Create an account to share and connect.'
+      : mode === 'forgot-password'
+        ? 'Enter your email and we’ll send you a reset link if an account exists.'
+        : 'Your reset link is ready. Choose a new password for your account.';
+  const needsPassword = mode === 'login' || mode === 'register' || mode === 'reset-password';
 
   return (
     <main className="auth-page">
@@ -108,10 +150,8 @@ function AuthScreen({ onAuthenticated, theme, onThemeToggle }) {
           <ThemeToggle onToggle={onThemeToggle} theme={theme} />
         </div>
         <p className="eyebrow">YOUR PEOPLE, YOUR PLACE</p>
-        <h1>{mode === 'login' ? 'Welcome back' : 'Join the conversation'}</h1>
-        <p className="muted">
-          {mode === 'login' ? 'Sign in to catch up with your community.' : 'Create an account to share and connect.'}
-        </p>
+        <h1>{title}</h1>
+        <p className="muted">{description}</p>
         <form className="stack-form" onSubmit={submit}>
           {mode === 'register' && (
             <label>
@@ -126,67 +166,131 @@ function AuthScreen({ onAuthenticated, theme, onThemeToggle }) {
               />
             </label>
           )}
-          <label>
-            Email
-            <input
-              autoComplete="email"
-              onChange={event => setEmail(event.target.value)}
-              required
-              type="email"
-              value={email}
-            />
-          </label>
-          <label>
-            Password
-            <span className="password-input-wrap">
+          {mode !== 'reset-password' && (
+            <label>
+              Email
               <input
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                minLength="8"
-                onChange={event => setPassword(event.target.value)}
+                autoComplete="email"
+                onChange={event => setEmail(event.target.value)}
                 required
-                type={showPassword ? 'text' : 'password'}
-                value={password}
+                type="email"
+                value={email}
               />
-              <button
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-                aria-pressed={showPassword}
-                className="password-toggle"
-                onClick={() => setShowPassword(visible => !visible)}
-                type="button"
-              >
-                <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
-                  {showPassword ? (
-                    <>
-                      <path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8" />
-                      <path d="M9.9 5.2A10.7 10.7 0 0112 5c5.5 0 9 5 9 7a9.7 9.7 0 01-3 3.8M6.2 6.2C3.9 7.6 3 10 3 12c0 2 3.5 7 9 7 1.1 0 2.1-.2 3-.6" />
-                    </>
-                  ) : (
-                    <>
-                      <path d="M3 12s3.2-7 9-7 9 7 9 7-3.2 7-9 7-9-7-9-7z" />
-                      <circle cx="12" cy="12" r="2.5" />
-                    </>
-                  )}
-                </svg>
-              </button>
-            </span>
-          </label>
+            </label>
+          )}
+          {needsPassword && (
+            <label>
+              {mode === 'reset-password' ? 'New password' : 'Password'}
+              <span className="password-input-wrap">
+                <input
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  maxLength="72"
+                  minLength="8"
+                  onChange={event => setPassword(event.target.value)}
+                  required
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                />
+                <button
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  className="password-toggle"
+                  onClick={() => setShowPassword(visible => !visible)}
+                  type="button"
+                >
+                  <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+                    {showPassword ? (
+                      <>
+                        <path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8" />
+                        <path d="M9.9 5.2A10.7 10.7 0 0112 5c5.5 0 9 5 9 7a9.7 9.7 0 01-3 3.8M6.2 6.2C3.9 7.6 3 10 3 12c0 2 3.5 7 9 7 1.1 0 2.1-.2 3-.6" />
+                      </>
+                    ) : (
+                      <>
+                        <path d="M3 12s3.2-7 9-7 9 7 9 7-3.2 7-9 7-9-7-9-7z" />
+                        <circle cx="12" cy="12" r="2.5" />
+                      </>
+                    )}
+                  </svg>
+                </button>
+              </span>
+            </label>
+          )}
+          {mode === 'login' && (
+            <button
+              className="text-button auth-forgot-password"
+              onClick={() => {
+                setMode('forgot-password');
+                setError('');
+                setNotice('');
+              }}
+              type="button"
+            >
+              Forgot password?
+            </button>
+          )}
           {error && <p className="error-message" role="alert">{error}</p>}
+          {notice && <p className="success-message" role="status">{notice}</p>}
           <button className="primary-button" disabled={busy} type="submit">
-            {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
+            {busy
+              ? 'Please wait…'
+              : mode === 'login'
+                ? 'Sign in'
+                : mode === 'register'
+                  ? 'Create account'
+                  : mode === 'forgot-password'
+                    ? 'Send reset link'
+                    : 'Reset password'}
           </button>
         </form>
         <p className="switch-auth">
-          {mode === 'login' ? 'New here?' : 'Already have an account?'}{' '}
-          <button
-            className="text-button"
-            onClick={() => {
-              setMode(mode === 'login' ? 'register' : 'login');
-              setError('');
-            }}
-            type="button"
-          >
-            {mode === 'login' ? 'Create an account' : 'Sign in'}
-          </button>
+          {mode === 'login' ? (
+            <>
+              New here?{' '}
+              <button
+                className="text-button"
+                onClick={() => {
+                  setMode('register');
+                  setError('');
+                  setNotice('');
+                }}
+                type="button"
+              >
+                Create an account
+              </button>
+            </>
+          ) : mode === 'register' ? (
+            <>
+              Already have an account?{' '}
+              <button
+                className="text-button"
+                onClick={() => {
+                  if (mode === 'reset-password') {
+                    setResetToken('');
+                    window.history.replaceState({}, '', `${window.location.pathname}${window.location.search}`);
+                    onResetFlowExit();
+                  }
+                  setMode('login');
+                  setError('');
+                  setNotice('');
+                }}
+                type="button"
+              >
+                Sign in
+              </button>
+            </>
+          ) : (
+            <button
+              className="text-button"
+              onClick={() => {
+                setMode('login');
+                setError('');
+                setNotice('');
+              }}
+              type="button"
+            >
+              Back to sign in
+            </button>
+          )}
         </p>
       </section>
     </main>
@@ -1377,6 +1481,9 @@ function GroupsPage({ user }) {
 
 function App() {
   const [user, setUser] = useState(null);
+  const [passwordResetRequested, setPasswordResetRequested] = useState(() => (
+    new URLSearchParams(window.location.hash.slice(1)).has('reset-token')
+  ));
   const [checkingSession, setCheckingSession] = useState(true);
   const [error, setError] = useState('');
   const [theme, setTheme] = useState(() => (
@@ -1419,12 +1526,17 @@ function App() {
   if (checkingSession) {
     return <main className="loading-screen"><BrandLogo className="loading-logo" /><p>Getting your space ready…</p></main>;
   }
-  if (!user) {
+  if (!user || passwordResetRequested) {
     return (
       <>
         {error && <p className="connection-notice" role="alert">Could not reach the server: {error}</p>}
         <AuthScreen
           onAuthenticated={setUser}
+          onPasswordReset={() => {
+            setUser(null);
+            setPasswordResetRequested(false);
+          }}
+          onResetFlowExit={() => setPasswordResetRequested(false)}
           onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           theme={theme}
         />

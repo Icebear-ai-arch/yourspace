@@ -1,8 +1,11 @@
 const bcrypt = require('bcryptjs');
 const express = require('express');
-const { User } = require('../models');
+const { Op } = require('sequelize');
+const { PasswordResetToken, User, sequelize } = require('../models');
 const requireAuth = require('../middleware/requireAuth');
 const { uploadProfilePicture, removeMedia } = require('../utils/media');
+const { isEmailConfigured, sendPasswordResetEmail } = require('../utils/email');
+const { createResetToken, hashResetToken } = require('../utils/passwordReset');
 
 const router = express.Router();
 
@@ -46,6 +49,28 @@ function destroySession(req) {
       resolve();
     });
   });
+}
+
+async function destroyUserSessions(req, userId, transaction) {
+  const sessionStore = req.app.get('sessionStore');
+  if (!sessionStore || !sessionStore.sessionModel) {
+    throw new Error('The session store is unavailable.');
+  }
+
+  const sessions = await sessionStore.sessionModel.findAll({
+    attributes: ['sid', 'data'],
+    where: { expires: { [Op.gt]: new Date() } },
+    transaction,
+  });
+  const sessionIds = sessions
+    .filter(session => JSON.parse(session.data).userId === userId)
+    .map(session => session.sid);
+  if (sessionIds.length) {
+    await sessionStore.sessionModel.destroy({
+      where: { sid: { [Op.in]: sessionIds } },
+      transaction,
+    });
+  }
 }
 
 function isUniqueConstraintError(error) {
@@ -94,6 +119,85 @@ router.post('/login', async (req, res) => {
 
   await saveUserSession(req, user.id);
   return res.json({ user: publicUser(user) });
+});
+
+router.post('/forgot-password', async (req, res) => {
+  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+    return res.status(400).json({ error: 'Enter a valid email address.' });
+  }
+  if (!isEmailConfigured()) {
+    return res.status(503).json({ error: 'Password reset email is not configured.' });
+  }
+
+  const user = await User.findOne({ where: { email } });
+  if (user) {
+    const { token, tokenHash } = createResetToken();
+    await PasswordResetToken.upsert({
+      userId: user.id,
+      tokenHash,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    });
+
+    const resetUrl = new URL('/', process.env.CLIENT_ORIGIN || 'http://localhost:3000');
+    resetUrl.hash = `reset-token=${token}`;
+    try {
+      await sendPasswordResetEmail(user.email, resetUrl.toString());
+    } catch (error) {
+      console.error('Password reset email delivery failed:', error.message);
+    }
+  }
+
+  return res.status(202).json({
+    message: 'If an account exists for that email, a password reset link will be sent.',
+  });
+});
+
+router.post('/reset-password', async (req, res) => {
+  const token = typeof req.body.token === 'string' ? req.body.token.toLowerCase() : '';
+  const password = typeof req.body.password === 'string' ? req.body.password : '';
+  if (!/^[a-f0-9]{64}$/.test(token)) {
+    return res.status(400).json({ error: 'This password reset link is invalid or has expired.' });
+  }
+  if (password.length < 8 || password.length > 72) {
+    return res.status(400).json({ error: 'Password must be between 8 and 72 characters.' });
+  }
+
+  const tokenHash = hashResetToken(token);
+  const expiresAt = { [Op.gt]: new Date() };
+  const existingToken = await PasswordResetToken.findOne({
+    where: { tokenHash, expiresAt },
+  });
+  if (!existingToken) {
+    return res.status(400).json({ error: 'This password reset link is invalid or has expired.' });
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  const resetUserId = await sequelize.transaction(async transaction => {
+    const resetToken = await PasswordResetToken.findOne({
+      where: { tokenHash, expiresAt: { [Op.gt]: new Date() } },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (!resetToken) return false;
+
+    const user = await User.findByPk(resetToken.userId, { transaction, lock: transaction.LOCK.UPDATE });
+    if (!user) {
+      await resetToken.destroy({ transaction });
+      return false;
+    }
+
+    await user.update({ passwordHash }, { transaction });
+    await resetToken.destroy({ transaction });
+    await destroyUserSessions(req, user.id, transaction);
+    return user.id;
+  });
+  if (!resetUserId) {
+    return res.status(400).json({ error: 'This password reset link is invalid or has expired.' });
+  }
+
+  req.app.get('io').in(`user:${resetUserId}`).disconnectSockets(true);
+  return res.json({ message: 'Your password has been reset. You can now sign in.' });
 });
 
 router.post('/logout', async (req, res) => {

@@ -16,9 +16,10 @@ if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
   throw new Error('SESSION_SECRET must be set in production.');
 }
 const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+const sessionStore = new SequelizeStore({ db: db.sequelize });
 const sessionMiddleware = session({
   secret: sessionSecret,
-  store: new SequelizeStore({ db: db.sequelize }),
+  store: sessionStore,
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -147,6 +148,7 @@ io.on('connection', socket => {
 });
 
 app.set('io', io);
+app.set('sessionStore', sessionStore);
 
 async function start() {
   await db.sequelize.authenticate();

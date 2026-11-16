@@ -382,6 +382,7 @@ video.media-preview { background: #000; }
 .auth-card > .muted { margin: 8px 0 22px; font-size: 13px; }
 .switch-auth { margin: 20px 0 0; color: var(--muted); font-size: 12px; text-align: center; }
 .switch-auth .text-button { font-size: 12px; }
+.auth-forgot-password { justify-self: start; }
 .loading-screen { align-content: center; gap: 12px; color: var(--muted); font-size: 13px; }
 .loading-screen .brand-logo { width: 230px; height: 90px; margin: auto; }
 .groups-page .empty-state { margin-top: 0; }
